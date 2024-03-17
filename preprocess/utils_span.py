@@ -33,7 +33,7 @@ def find_mapping(input_ids, attention_mask):
     datastore = defaultdict(list)
     mapping = defaultdict(list)
     N = 1
-
+    # construct_datastore -> datastore with key-string (block[token_idx:token_idx+L]), value-(block,token_idx)
     def construct_datastore(length_list=range(1, N+1)):
         for block_idx, block in enumerate(blocks):
             for token_idx, token in enumerate(block):
@@ -43,7 +43,7 @@ def find_mapping(input_ids, attention_mask):
                         continue
                     if len(key)==L:
                         datastore[tuple(key)].append((block_idx, token_idx))
-
+    
     construct_datastore()
 
     for block_idx, block in enumerate(blocks):
@@ -79,11 +79,12 @@ def find_mapping(input_ids, attention_mask):
 
                 assert key in datastore
                 assert pos in datastore[key]
-
+                # from different block, with same key, length
                 candidates = [t for t in datastore[key] if block_idx!=t[0]]
                 if len(candidates)==0:
                     break
                 else:
+                    # from different block, with same key, length
                     mapping[pos].append((candidates, L, key))
 
     return mapping
@@ -111,14 +112,17 @@ def mask_spans(data_path, masking_ratio=0.4, p=0.2):
 
                 for (i, j), triples in mapping.items():
                     for (candidates, n, key) in triples:
+                        # ngram to span
                         ngram2spans[min(10, n)].append((i, j, n))
                         for (other_i, other_j) in candidates:
                             for k in range(n):
+                                # pos to key
                                 pos2dependent_keys[(other_i, other_j+k)].append((i, j, n))
 
                 input_ids = np.array(dp["input_ids"])
                 attention_mask = np.array(dp["attention_mask"])
                 BS, length = input_ids.shape
+                # permutated
                 ngram2spans = {k: np.random.permutation(v).tolist() for k, v in ngram2spans.items()}
 
                 masked_input_ids = input_ids.copy()
